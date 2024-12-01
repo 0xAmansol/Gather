@@ -18,6 +18,7 @@ interface Player {
   id: string;
   x: number;
   y: number;
+  animationState?: string;
 }
 
 const players: Record<string, Player> = {};
@@ -26,8 +27,10 @@ io.on("connection", (socket) => {
   console.log(`User Connected : ${socket.id}`);
 
   socket.on("playerJoin", (playerData: Player) => {
-    players[socket.id] = playerData;
-    io.emit("updatePlayers", players);
+    if (!players[socket.id]) {
+      players[socket.id] = playerData;
+      io.emit("updatePlayers", players);
+    }
   });
 
   socket.on("disconnect", () => {
@@ -36,9 +39,16 @@ io.on("connection", (socket) => {
     io.emit("updatePlayers", players);
   });
 
-  socket.on("movement", (playerData: Player) => {
-    console.log(playerData);
-    io.emit("updatePlayers", players);
+  socket.on("movement", (playerData: Player & { animationState: string }) => {
+    if (players[socket.id]) {
+      players[socket.id] = {
+        ...players[socket.id],
+        x: playerData.x,
+        y: playerData.y,
+        animationState: playerData.animationState, // Update animation state
+      };
+      io.emit("updatePlayers", players); // Broadcast updated players
+    }
   });
 });
 

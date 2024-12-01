@@ -76,19 +76,29 @@ class GameScene extends Phaser.Scene {
       for (let id in this.players) {
         if (!players[id]) {
           this.players[id].destroy();
-          delete this.player[id];
+          delete this.players[id];
         }
       }
 
       for (let id in players) {
+        if (id === socket.id) continue; // Skip the local player
+        const playerData = players[id];
         if (!this.players[id]) {
-          const playerData = players[id];
-          const newPlayer = this.physics.add.sprite(400, 400, "player");
+          // Add new player
+
+          const newPlayer = this.physics.add.sprite(
+            playerData.x,
+            playerData.y,
+            "player"
+          );
           this.players[id] = newPlayer;
-          console.log(this.players);
         } else {
-          const playerData = players[id];
+          // Update position of existing player
           this.players[id].setPosition(playerData.x, playerData.y);
+        }
+
+        if (id !== socket.id && playerData.animationState) {
+          this.players[id].anims.play(playerData.animationState, true);
         }
       }
     });
@@ -137,41 +147,40 @@ class GameScene extends Phaser.Scene {
     const speed = 150;
     this.player.setVelocity(0);
 
+    let animationState = null;
+
     // Player movement logic
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-speed);
-      this.player.anims.play("walk-left", true);
+      animationState = "walk-left";
       this.lastDirection = "left";
     } else if (this.cursors.right.isDown) {
       this.player.setVelocityX(speed);
-      this.player.anims.play("walk-right", true);
+      animationState = "walk-right";
       this.lastDirection = "right";
     } else if (this.cursors.up.isDown) {
       this.player.setVelocityY(-speed);
-      this.player.anims.play("walk-up", true);
+      animationState = "walk-up";
       this.lastDirection = "up";
     } else if (this.cursors.down.isDown) {
       this.player.setVelocityY(speed);
-      this.player.anims.play("walk-down", true);
+      animationState = "walk-down";
       this.lastDirection = "down";
     } else {
-      switch (this.lastDirection) {
-        case "left":
-          this.player.anims.play("idle-left", true);
-          break;
-        case "right":
-          this.player.anims.play("idle-right", true);
-          break;
-        case "up":
-          this.player.anims.play("idle-up", true);
-          break;
-        case "down":
-          this.player.anims.play("idle-down", true);
-          break;
-      }
+      animationState = `idle-${this.lastDirection}`;
     }
-    const playerData = { x: this.player.x, y: this.player.y, id: socket.id };
-    socket.emit("movePlayer", playerData);
+    if (animationState) {
+      this.player.anims.play(animationState, true);
+
+      // Emit the animation state to the server
+      const playerData = {
+        x: this.player.x,
+        y: this.player.y,
+        id: socket.id,
+        animationState, // Include the animation state
+      };
+      socket.emit("movement", playerData);
+    }
   }
 }
 
